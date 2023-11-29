@@ -1,76 +1,115 @@
-import gurobipy as gp
-from gurobipy import GRB, Model
+from gurobipy import Model, GRB
 
-# Data
-monthly_demand = [53000, 52000, 53000, 38000, 32000, 19000, 27000, 35000, 36000, 38000, 42000, 48000]
-num_months = len(monthly_demand)
-initial_inventory = 3000
-prod_capacity = 100  # number of employees
-max_employees = 150  # max number of employees per month
-hire_cost = 800
+# =============================
+# Parameters
+# =============================
+
+# Demand per month
+D = [53000, 52000, 53000, 38000, 32000, 19000, 27000, 35000, 36000, 38000, 42000, 48000]
+
+# Selling price per unit
+selling_price = 75
+
+# Production cost per unit (material cost)
+production_cost = 20
+
+# Working hours required per unit
+hours_per_unit = 2
+
+# Normal and overtime hourly wage
+normal_wage = 15
+overtime_wage = 18
+
+# Maximum overtime hours per month per employee
+max_overtime = 10
+
+# Hiring and layoff costs
+hiring_cost = 800
 layoff_cost = 1000
-prod_rate = 2  # hours per employee to make 1 unit
-monthly_hours = 22 * 8  # 22 days at 8 hours per day
-inv_cost = 10  # inventory holding cost per unit per month
-inv_limit = 6000  # max inventory due to space constraints
-mat_cost = 20  # materials cost per unit
-sell_price = 75  # selling price per unit
-ot_rate = 18  # overtime pay per hour
-ot_limit = 10  # max overtime hours per employee
-third_party_cost = 67  # cost to outsource per unit
-penalty_cost = 12  # penalty per unit backordered per month
 
-# Create model
-model = Model("TechMetal")
+# Monthly storage cost per unit
+storage_cost = 10
 
-# Decision variables
-prod = model.addVars(num_months, name="Production")  # monthly production
-inv = model.addVars(num_months, name="Inventory")  # end-of-month inventory
-backorder = model.addVars(num_months, name="Backorder")  # backordered demand
-employees = model.addVars(num_months, vtype=GRB.INTEGER, name="Employees")  # number of employees
-overtime = model.addVars(num_months, name="Overtime")  # overtime hours used
-outsource = model.addVars(num_months, name="Outsource")  # units outsourced
-hire = model.addVars(num_months, vtype=GRB.INTEGER, name="Hire")
-layoff = model.addVars(num_months, vtype=GRB.INTEGER, name="Layoff")
+# Initial inventory
+initial_inventory = 3000
 
-# Objective - maximize profit
-profit = gp.quicksum(sell_price * prod[i] for i in range(num_months))
-profit -= gp.quicksum(mat_cost * prod[i] for i in range(num_months))
-profit -= gp.quicksum(inv_cost * inv[i] for i in range(num_months))
-profit -= gp.quicksum(hire_cost * hire[i] for i in range(num_months))
-profit -= gp.quicksum(layoff_cost * layoff[i] for i in range(num_months))
-profit -= gp.quicksum(third_party_cost * outsource[i] for i in range(num_months))
-profit -= gp.quicksum(penalty_cost * backorder[i] for i in range(num_months))
+# Storage capacity
+storage_capacity = 6000
+
+# Penalty cost per unit per month for unfulfilled demand
+penalty_cost = 12
+
+# Number of working days per month and hours per shift
+working_days = 22
+hours_per_shift = 8
+
+# Current number of employees
+current_employees = 100
+
+# Maximum recruitment limit per month
+max_recruitment = 150
+
+# Third party production cost per unit
+third_party_cost = 67
+
+
+
+model = Model("TechMetal Corp Production Planning")
+
+
+# =============================
+# Variables
+# =============================
+
+production = model.addVars(12, vtype=GRB.INTEGER, name="production")
+overtime = model.addVars(12, vtype=GRB.INTEGER, name="overtime")
+hiring = model.addVars(12, vtype=GRB.INTEGER, name="hiring")
+layoff = model.addVars(12, vtype=GRB.INTEGER, name="layoff")
+inventory = model.addVars(12, vtype=GRB.INTEGER, name="inventory")
+third_party = model.addVars(12, vtype=GRB.INTEGER, name="third_party")
+
+# Initial inventory
+inventory[0] = initial_inventory
+
+# Objective function: Maximize profit
+profit = sum((selling_price - production_cost) * production[m] -
+             overtime[m] * overtime_wage -
+             hiring[m] * hiring_cost -
+             layoff[m] * layoff_cost -
+             inventory[m] * storage_cost -
+             third_party[m] * third_party_cost -
+             penalty_cost * max(0, D[m] - (production[m] + inventory[m-1] + third_party[m]))
+             for m in range(12))
+
+
 model.setObjective(profit, GRB.MAXIMIZE)
 
 # Constraints
-for i in range(num_months):
-    # inventory balance
-    if i == 0:
-        model.addConstr(inv[i] == initial_inventory + prod[i] - monthly_demand[i] + backorder[i])
-    else:
-        model.addConstr(inv[i] == inv[i - 1] + prod[i] - monthly_demand[i] + backorder[i])
+for m in range(12):
+    # Production capacity
+    model.addConstr(production[m] <= (working_days * hours_per_shift + max_overtime) * current_employees)
 
-    # production capacity
-    model.addConstr(prod[i] <= employees[i] * monthly_hours / prod_rate + overtime[i])
+    # Inventory balance
+    if m > 0:
+        model.addConstr(inventory[m] == inventory[m-1] + production[m] + third_party[m] - D[m])
 
-    # overtime limit per employee
-    model.addConstr(overtime[i] <= employees[i] * ot_limit)
+    # Employee management
+    model.addConstr(hiring[m] <= max_recruitment)
+    model.addConstr(current_employees + hiring[m] - layoff[m] >= 0)
 
-    # inventory limits
-    model.addConstr(inv[i] <= inv_limit)
+    # Overtime per employee
+    model.addConstr(overtime[m] <= max_overtime * current_employees)
 
-    # backorders fulfilled
-    if i == num_months - 1:
-        model.addConstr(backorder[i] == 0)
+    # Storage capacity
+    model.addConstr(inventory[m] <= storage_capacity)
 
-    # workforce dynamics
-    if i > 0:
-        model.addConstr(employees[i] == employees[i - 1] + hire[i] - layoff[i])
-
-    # hiring limits
-    model.addConstr(hire[i] <= max_employees)
-
+# Solve the model
 model.optimize()
 
-print('Maximum annual profit: $' + str(model.objVal))
+# Print the solution
+if model.status == GRB.OPTIMAL:
+    print("Optimal annual profit: ${:.2f}".format(model.objVal))
+    for m in range(12):
+        print(f"Month {m+1}: Production = {production[m].X}, Inventory = {inventory[m].X}, Overtime = {overtime[m].X}, Hiring = {hiring[m].X}, Layoff = {layoff[m].X}, Third Party = {third_party[m].X}")
+else:
+    print("No optimal solution found")
