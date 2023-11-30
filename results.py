@@ -1,3 +1,4 @@
+'''
 TechMetal, the optimal production plan,profit of 10354512.0 monetary units
 The number of employees in the period 1 is 250.0.
 The number of newly recruited Employees in period 1 150.0.
@@ -53,3 +54,4 @@ The  month 11 average cost per unit is 50.86
 the procurement in month 11 is 0.0
 The  month 12 average cost per unit is 50.97
 the procurement in month 12 is 0.0
+'''
