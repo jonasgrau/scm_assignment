@@ -63,13 +63,26 @@ model = Model("TechMetal Corp Production Planning")
 # Variables
 # =============================
 
-production = model.addVars(12, lb=0, vtype=GRB.INTEGER, name="production")  # Number of units produced each month
-overtime = model.addVars(12, lb=0, vtype=GRB.INTEGER, name="overtime")  # Total overtime hours worked by all employees each month
-hiring = model.addVars(12, lb=0, ub=150, vtype=GRB.INTEGER, name="hiring")  # Number of new employees hired each month
-layoff = model.addVars(12, lb=0, vtype=GRB.INTEGER, name="layoff")  # Number of employees laid off each month
-inventory = model.addVars(12, lb=0, vtype=GRB.INTEGER, name="inventory")  # Number of units in inventory at the end of each month
-third_party = model.addVars(12, lb=0, vtype=GRB.INTEGER, name="third_party")  # Number of units purchased from third-party suppliers each month
-unfulfilled_demand = model.addVars(12, lb=0, vtype=GRB.INTEGER, name="unfulfilled_demand")  # Quantity of demand that is not met each month
+# Number of units produced each month
+production = model.addVars(12, lb=0, vtype=GRB.INTEGER, name="production")
+
+# Total overtime hours worked by all employees each month
+overtime = model.addVars(12, lb=0, vtype=GRB.INTEGER, name="overtime")
+
+# Number of new employees hired each month
+hiring = model.addVars(12, lb=0, ub=150, vtype=GRB.INTEGER, name="hiring")
+
+# Number of employees laid off each month
+layoff = model.addVars(12, lb=0, vtype=GRB.INTEGER, name="layoff")
+
+# Number of units in inventory at the end of each month
+inventory = model.addVars(12, lb=0, vtype=GRB.INTEGER, name="inventory")
+
+# Number of units purchased from third-party suppliers each month
+third_party = model.addVars(12, lb=0, vtype=GRB.INTEGER, name="third_party")
+
+# Quantity of demand that is not met each month
+unfulfilled_demand = model.addVars(12, lb=0, vtype=GRB.INTEGER, name="unfulfilled_demand")
 
 
 # Update the model to integrate new variables
@@ -87,7 +100,10 @@ profit = sum((selling_price - production_cost) * production[m] -
 
 model.setObjective(profit, GRB.MAXIMIZE)
 
+# =============================
 # Constraints
+# =============================
+
 for m in range(12):
     # Production capacity
     model.addConstr(production[m] <= (working_days * hours_per_shift + max_overtime) * (current_employees + sum(hiring[i] - layoff[i] for i in range(m+1))))
