@@ -10,7 +10,6 @@ T = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]
 # Demand per period
 D = [53000, 52000, 53000, 38000, 32000, 19000, 27000, 35000, 36000, 38000, 42000, 48000]
 
-
 # Selling price per piece
 E = 75
 
@@ -18,13 +17,13 @@ E = 75
 u = 2
 
 # Number of regular working hours
-h = 176 # 22*8
+h = 176  # 22*8
 
 # Maximum number of overtime hours
 o_max = 10
 
 # Labor costs monthly
-c_W = 2640  #15*176
+c_W = 2640  # 15*176
 
 # Recruitment costs
 c_H = 800
@@ -36,7 +35,7 @@ c_L = 1000
 c_P = 20
 
 # Warehousing costs
-c_I =  10
+c_I = 10
 
 # Shortage costs
 c_S = 12
@@ -89,15 +88,13 @@ model.addConstr(W[0] == 100)
 model.addConstr(I[0] == 3000)
 
 # Set the inventory in the last period to at least 500 units
-#model.addConstr(I[6] >= 500)
+# model.addConstr(I[6] >= 500)
 
 # Set missing quantities to 0
 model.addConstr(S[0] == 0)
 
 # No shortages at the end of the planning period, meet all demand
 model.addConstr(S[12] == 0)
-
-
 
 # Number of workers
 model.addConstrs(
@@ -110,7 +107,7 @@ model.addConstrs(
 
 # Production capacity
 model.addConstrs(
-    P[t] <= (h/u) * W[t] + O[t]/u for t in T)
+    P[t] <= (h / u) * W[t] + O[t] / u for t in T)
 
 # Overtime is limited
 model.addConstrs(
@@ -122,9 +119,8 @@ model.addConstrs(
 
 # Warehousing capacity of 6000 units
 model.addConstrs(
-    I[t] <= 6000 for t in T 
+    I[t] <= 6000 for t in T
 )
-
 
 # t = 1 -> I[0]+P[1]+C[1] == D[0]+S[0]+I[1]-S[1]
 # t = 6 -> I[5]+P[6]+C[6] == D[5]+S[5]+I[6]-S[6]
@@ -138,12 +134,11 @@ model.setObjective(
           for t in T),
     GRB.MAXIMIZE)
 
-
 model.optimize()
 
 model.printAttr("X")
 
-print("Red Tomato Tools , the optimal production plan,"
+print("TechMetal, the optimal production plan,"
       "profit of {} monetary units".format(model.objVal))
 
 for t in T:
@@ -171,3 +166,16 @@ print("The costs for production material amount to more than the planning"
       " period to {} monetary units.".format(sum(c_P * P[t].X for t in T)))
 print("The costs for external procurement amount to over the planning"
       " period to {} monetary units.".format(sum(c_C * C[t].X for t in T)))
+
+for t in T:
+
+    monthly_cost = c_W * W[t].X + c_O * O[t].X + c_H * H[t].X + c_L * L[t].X + c_I * I[t].X + c_S * S[t].X + c_P * P[
+        t].X
+    monthly_production = P[t].X
+    if monthly_production > 0:
+        unit_cost = monthly_cost / monthly_production
+    else:
+        unit_cost = 0
+
+    print("The  month {} average cost per unit is {:.2f} ".format(t, unit_cost))
+    print("the procurement in month", t, "is", C[t].X)
